@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>GPTools</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <ul class="nav nav-tabs">
+      <!--<li role="presentation" class="active"><a data-toggle="tab" href="#positions">GP Rank</a></li>-->
+      <li role="presentation" class="active"><a data-toggle="tab" href="#positions-bulk">GP Rank Bulk</a></li>
+    </ul>
+
+    <div class="tab-content">
+
+      <div id="positions" class="tab-pane">
+        <form>
+          <div class="form-group">
+            <label for="positions-pkg">Pkg</label>
+            <input class="form-control" id="positions-pkg" placeholder="com.example.pkg"/>
+          </div>
+          <div class="form-group">
+            <label for="positions-qs">Queries</label>
+            <textarea id="positions-qs" class="form-control"></textarea>
+          </div>
+          <button class="btn btn-default">View</button>
+        </form>
+      </div>
+
+      <div id="positions-bulk" class="tab-pane in active">
+        <form>
+          <div class="form-group">
+            <label for="positions-bulk-textarea">Bulk</label>
+            <textarea class="form-control" id="positions-bulk-textarea" placeholder="com.example.pkg some search query"></textarea>
+          </div>
+          <button class="btn btn-default">View</button>
+
+          <div class="results">
+
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <iframe
+          id="positions-iframe"
+          src=""
+          nwdisable
+          nwfaketop
+          nwUserAgent="Mozilla/5.0 (Linux; Android 6.0; LG-K430 Build/MRA58K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.91 Mobile Safari/537.36"
+          style="width: 1px; height: 1px;"
+  ></iframe>
+
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nunjucks/3.0.1/nunjucks.min.js"></script>
+
+    <script>
+
+      function makeQueue(ds){
+          var queue = $.when([]);
+          $.each(ds, function (idx, d) {
+              queue = queue.then(function () {
+                  return d;
+              });
+          });
+
+          return queue;
+      }
+
+      $(function(){
+
+          var positionsIframe = document.getElementById("positions-iframe");
+          var positionsIframeWindow = positionsIframe.contentWindow;
+
+          function getPosition(query, pkg) {
+              return $.Deferred(function(d){
+                  $("#positions-iframe")
+                    .attr({
+                        src: "https://play.google.com/store/search?q=" + encodeURIComponent(query) + "&c=apps"
+                    })
+                    .one("load", function(){
+                        var cards = $(".card-content[data-docid]", positionsIframeWindow.document);
+                        var rank = 1;
+                        $.each(cards, function (dummy, card) {
+                            if($(card).data("docid") == pkg){
+                                d.resolve(rank);
+                            }
+                            rank++;
+                        });
+                        d.resolve(-1);
+                    });
+              });
+          }
+
+          $("#positions form").submit(function () {
+              var pkg = $("#positions-pkg").val();
+              var qs = $("#positions-qs").val().split(/\n/);
+              var queue = $.when([]);
+              qs.map(function (q) {
+                  queue = queue.then(function(){
+                      var d = getPosition(q, pkg);
+                      d.done(function(rank){
+                          console.log(q, pkg, rank);
+                      });
+                      return d;
+                  });
+              });
+
+              return false;
+          });
+
+          $("#positions-bulk form").submit(function () {
+              var qs = $("#positions-bulk-textarea").val().split(/\n/);
+              var queue = $.when([]);
+              var rows = [];
+              qs.map(function (q) {
+                  q = q.split(/\t/, 2);
+                  var pkg = q[0];
+                  q = q[1];
+
+                  queue = queue.then(function(){
+                      var d = getPosition(q, pkg);
+                      d.done(function(rank){
+                          rows.push({
+                              pkg: pkg,
+                              query: q,
+                              rank: rank
+                          });
+                      });
+                      return d;
+                  });
+              });
+
+              queue.then(function(){
+                  var html = nunjucks.render('views/rank-table.twig', {rows: rows });
+                  $('#positions-bulk .results').html(html);
+              });
+
+              return false;
+          });
+      });
+    </script>
+  </body>
+</html>

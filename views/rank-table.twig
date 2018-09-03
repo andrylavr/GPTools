@@ -1,0 +1,18 @@
+<table class="table">
+    <thead>
+    <tr>
+        <th>pkg</th>
+        <th>query</th>
+        <th>rank</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+        <tr>
+            <td>{{ row.pkg }}</td>
+            <td>{{ row.query }}</td>
+            <td>{{ row.rank }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
